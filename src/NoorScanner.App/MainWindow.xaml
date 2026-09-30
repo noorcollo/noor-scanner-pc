@@ -1,0 +1,124 @@
+<Window x:Class="NoorScanner.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Noor Scanner PC" Height="760" Width="1120" MinHeight="650" MinWidth="900"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource CanvasBrush}"
+        FontFamily="Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="24" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="White" CornerRadius="16" Padding="24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="48" Height="48" CornerRadius="13" Background="{StaticResource AccentBrush}" Margin="0,0,14,0">
+                        <TextBlock Text="N" Foreground="White" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel>
+                        <TextBlock Text="Noor Scanner" FontSize="23" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                        <TextBlock Text="Your documents, clear and organized" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" />
+                    </StackPanel>
+                </StackPanel>
+                <Border Grid.Column="1" Background="#EAF5F2" CornerRadius="18" Padding="12,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="Local and private" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="22" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="White" CornerRadius="16" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="New scan" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                    <TextBlock Text="Choose your scanner and scan quality." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,22" />
+
+                    <TextBlock Text="SCANNER" FontSize="11" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,7" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="DeviceSelector" Grid.Column="0" DisplayMemberPath="Name"
+                                  AutomationProperties.Name="Scanner device" />
+                        <Button x:Name="RefreshButton" Grid.Column="2" Content="Refresh" Padding="12,8"
+                                Click="Refresh_Click" AutomationProperties.Name="Refresh scanner list" />
+                    </Grid>
+                    <TextBlock x:Name="DeviceHint" Text="Connect a WIA or TWAIN scanner, then refresh." FontSize="12"
+                               Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,7,0,20" />
+
+                    <TextBlock Text="RESOLUTION" FontSize="11" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,7" />
+                    <ComboBox x:Name="DpiSelector" AutomationProperties.Name="Scan resolution">
+                        <ComboBoxItem Content="150 DPI · small file" Tag="150" />
+                        <ComboBoxItem Content="200 DPI · everyday" Tag="200" />
+                        <ComboBoxItem Content="300 DPI · recommended" Tag="300" />
+                        <ComboBoxItem Content="600 DPI · high detail" Tag="600" />
+                    </ComboBox>
+
+                    <TextBlock Text="PAPER SOURCE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" Margin="0,18,0,7" />
+                    <ComboBox x:Name="PaperSourceSelector" AutomationProperties.Name="Scanner paper source">
+                        <ComboBoxItem Content="Automatic" Tag="Auto" />
+                        <ComboBoxItem Content="Flatbed" Tag="Flatbed" />
+                        <ComboBoxItem Content="Document feeder" Tag="Feeder" />
+                        <ComboBoxItem Content="Duplex feeder" Tag="Duplex" />
+                    </ComboBox>
+
+                    <CheckBox x:Name="DeskewCheckBox" Content="Straighten tilted pages" IsChecked="True"
+                              Margin="0,18,0,20" FontSize="13" Foreground="{StaticResource InkBrush}"
+                              AutomationProperties.Name="Automatically straighten pages" />
+                    <Button x:Name="ScanButton" Content="Scan to PDF" Background="{StaticResource AccentBrush}"
+                            Foreground="White" FontWeight="SemiBold" Click="Scan_Click"
+                            AutomationProperties.Name="Scan documents and save as PDF" />
+                    <Button x:Name="CancelButton" Content="Cancel scan" Margin="0,9,0,0" Background="#EEF2F4"
+                            Foreground="{StaticResource InkBrush}" IsEnabled="False" Click="Cancel_Click" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Background="White" CornerRadius="16" Padding="28">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="A calmer way to scan" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                        <TextBlock Text="Scan paper documents into PDFs, right from your PC." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
+                        <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
+                            <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="Ready when you are" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
+                        <TextBlock Text="Connect a scanner, place your page, then choose Scan to PDF. Multi-page feeder scans are saved together as one document." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,0" LineHeight="23" />
+                        <Border Background="#F4F7F8" CornerRadius="10" Padding="15" Margin="0,24,0,0">
+                            <TextBlock Text="Scanned pages are processed locally. Noor Scanner does not upload document content." TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="3" Background="White" CornerRadius="12" Padding="15,11">
+            <DockPanel>
+                <TextBlock x:Name="StatusText" Text="Ready · Connect a scanner to begin" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Right" Text="Noor Scanner PC · Windows" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,19 @@
+# .NET
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+
+# Test and build output
+TestResults/
+coverage/
+artifacts/
+
+# Local app/runtime state
+*.log
+*.tmp
+*.pdf
+*.jpg
+*.jpeg
+*.png

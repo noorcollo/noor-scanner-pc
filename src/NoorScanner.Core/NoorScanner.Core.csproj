@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>NoorScanner.Core</RootNamespace>
+    <AssemblyName>NoorScanner.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NAPS2.Sdk" Version="1.3.0" />
+    <PackageReference Include="NAPS2.Images.Gdi" Version="1.3.0" />
+  </ItemGroup>
+</Project>
