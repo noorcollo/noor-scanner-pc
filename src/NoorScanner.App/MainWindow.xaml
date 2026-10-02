@@ -94,22 +94,36 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="A calmer way to scan" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-                        <TextBlock Text="Scan paper documents into PDFs, right from your PC." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" />
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Your document workspace" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                        <TextBlock Text="Bring in local photos, images, or PDFs, then save the pages together." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
-                        <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
-                            <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="Ready when you are" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Text="Connect a scanner, place your page, then choose Scan to PDF. Multi-page feeder scans are saved together as one document." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,0" LineHeight="23" />
-                        <Border Background="#F4F7F8" CornerRadius="10" Padding="15" Margin="0,24,0,0">
-                            <TextBlock Text="Scanned pages are processed locally. Noor Scanner does not upload document content." TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                        </Border>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,18,0,14">
+                        <Button x:Name="ImportFilesButton" Content="Add photos or PDFs" Padding="15,9" Background="{StaticResource AccentBrush}"
+                                Foreground="White" FontWeight="SemiBold" Click="ImportFiles_Click"
+                                AutomationProperties.Name="Import local photos, images, and PDF documents" />
+                        <Button x:Name="ExportWorkspaceButton" Content="Save as PDF" Margin="10,0,0,0" Padding="15,9"
+                                IsEnabled="False" Click="ExportWorkspace_Click" AutomationProperties.Name="Save workspace pages as one PDF" />
+                        <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
                     </StackPanel>
+                    <Grid Grid.Row="2">
+                        <ListBox x:Name="WorkspacePagesList" Visibility="Collapsed" DisplayMemberPath="DisplayLabel"
+                                 AutomationProperties.Name="Imported document pages" />
+                        <StackPanel x:Name="WorkspaceEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
+                            <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
+                                <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="Add local documents" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Choose one or more PDF, JPEG, PNG, BMP, or TIFF files. Their pages will appear here in the file-picker order." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,0" LineHeight="23" />
+                            <Border Background="#F4F7F8" CornerRadius="10" Padding="15" Margin="0,24,0,0">
+                                <TextBlock Text="Files are imported locally. Noor Scanner does not upload document content." TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

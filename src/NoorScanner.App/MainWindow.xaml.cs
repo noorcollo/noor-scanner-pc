@@ -1,15 +1,19 @@
-using System.Windows;
-using System.Windows.Controls;
 using Microsoft.Win32;
 using NAPS2.Scan;
 using NoorScanner.Core;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace NoorScanner.App;
 
 public partial class MainWindow : Window
 {
     private readonly ScannerService _scannerService = new();
+    private readonly DocumentWorkspaceService _documentWorkspace = new();
     private CancellationTokenSource? _scanCancellation;
+    private CancellationTokenSource? _workspaceImportCancellation;
+    private bool _workspaceOperationInProgress;
+    private bool _windowClosing;
 
     public MainWindow()
     {
@@ -17,7 +21,16 @@ public partial class MainWindow : Window
         DpiSelector.SelectedIndex = 2;
         PaperSourceSelector.SelectedIndex = 0;
         Loaded += Window_Loaded;
-        Closing += (_, _) => _scanCancellation?.Cancel();
+        Closing += (_, _) =>
+        {
+            _windowClosing = true;
+            _scanCancellation?.Cancel();
+            _workspaceImportCancellation?.Cancel();
+            if (!_workspaceOperationInProgress)
+            {
+                _documentWorkspace.Dispose();
+            }
+        };
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
@@ -60,6 +73,135 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ImportFiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Add photos or PDF documents",
+            Filter = "Supported documents and images (*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff)|*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|PDF documents (*.pdf)|*.pdf|Image files (*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff)|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff",
+            Multiselect = true,
+            CheckFileExists = true,
+            CheckPathExists = true
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        _workspaceOperationInProgress = true;
+        _workspaceImportCancellation = new CancellationTokenSource();
+        SetWorkspaceBusy(true);
+        StatusText.Text = "Importing selected files locally…";
+        try
+        {
+            var addedPages = await _documentWorkspace.ImportFilesAsync(
+                dialog.FileNames,
+                _workspaceImportCancellation.Token);
+            if (_windowClosing) return;
+            RefreshWorkspacePages();
+            StatusText.Text = $"Added {addedPages} page{(addedPages == 1 ? "" : "s")} to the workspace";
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_windowClosing)
+            {
+                RefreshWorkspacePages();
+                StatusText.Text = "Import cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                RefreshWorkspacePages();
+                StatusText.Text = "One or more files could not be imported";
+                MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceImportCancellation?.Dispose();
+            _workspaceImportCancellation = null;
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        if (_documentWorkspace.Pages.Count == 0)
+        {
+            MessageBox.Show(this, "Add at least one document or image before saving a PDF.",
+                "Workspace is empty", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save combined document",
+            Filter = "PDF document (*.pdf)|*.pdf",
+            DefaultExt = ".pdf",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = $"NoorDocument_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        StatusText.Text = "Creating your combined PDF locally…";
+        try
+        {
+            await _documentWorkspace.ExportToPdfAsync(dialog.FileName);
+            if (_windowClosing) return;
+            StatusText.Text = $"Saved {_documentWorkspace.Pages.Count} pages · {System.IO.Path.GetFileName(dialog.FileName)}";
+            MessageBox.Show(this, $"Your {_documentWorkspace.Pages.Count}-page PDF is ready:\n{dialog.FileName}",
+                "Export complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "PDF export did not complete";
+                MessageBox.Show(this, ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private void RefreshWorkspacePages()
+    {
+        var pages = _documentWorkspace.Pages;
+        WorkspacePagesList.ItemsSource = null;
+        WorkspacePagesList.ItemsSource = pages;
+        WorkspaceCountText.Text = $"{pages.Count} page{(pages.Count == 1 ? "" : "s")}";
+        WorkspacePagesList.Visibility = pages.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceEmptyState.Visibility = pages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ExportWorkspaceButton.IsEnabled = pages.Count > 0;
+    }
+
+    private void SetWorkspaceBusy(bool isBusy)
+    {
+        ImportFilesButton.IsEnabled = !isBusy;
+        ExportWorkspaceButton.IsEnabled = !isBusy && _documentWorkspace.Pages.Count > 0;
+    }
+
     private async void Scan_Click(object sender, RoutedEventArgs e)
     {
         if (DeviceSelector.SelectedItem is not ScanDevice device)
@@ -100,24 +242,28 @@ public partial class MainWindow : Window
         try
         {
             var pageCount = await _scannerService.ScanToPdfAsync(device, settings, dialog.FileName, _scanCancellation.Token);
+            if (_windowClosing) return;
             StatusText.Text = $"Saved {pageCount} page{(pageCount == 1 ? "" : "s")} · {System.IO.Path.GetFileName(dialog.FileName)}";
             MessageBox.Show(this, $"Your {pageCount}-page PDF is ready:\n{dialog.FileName}",
                 "Scan complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (OperationCanceledException)
         {
-            StatusText.Text = "Scan cancelled";
+            if (!_windowClosing) StatusText.Text = "Scan cancelled";
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Scan did not complete";
-            MessageBox.Show(this, ex.Message, "Scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Scan did not complete";
+                MessageBox.Show(this, ex.Message, "Scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         finally
         {
             _scanCancellation.Dispose();
             _scanCancellation = null;
-            SetScanBusy(false);
+            if (!_windowClosing) SetScanBusy(false);
         }
     }
 

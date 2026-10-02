@@ -1,6 +1,6 @@
 # Noor Scanner PC
 
-A Noor-branded Windows desktop app for scanning paper documents into clear, combined PDF files. The first milestone focuses on reliable scanner discovery and capture; the scheduled upgrades will add document-review and CamScanner-style enhancement features.
+A Noor-branded Windows desktop app for scanning paper documents and assembling local photos, images, and PDFs into a combined document. The app is still an early staged project; see the roadmap for what remains planned.
 
 ## Current milestone
 
@@ -8,16 +8,20 @@ A Noor-branded Windows desktop app for scanning paper documents into clear, comb
 - Choose automatic, flatbed, feeder, or duplex paper source.
 - Scan at 150, 200, 300, or 600 DPI with optional automatic deskew.
 - Save feeder pages together as a multi-page PDF.
-- Keep scanning and PDF export local; Noor Scanner does not upload document contents.
-- Cancel a scan from the app.
+- Import one or more local PDF, JPEG, PNG, BMP, or TIFF files into a page workspace.
+- Export imported pages together as one PDF, preserving the file-picker order.
+- Keep scanning, import, and PDF export local; Noor Scanner does not upload document contents.
+- Cancel a physical scan; closing the app cancels an in-progress file import before workspace cleanup.
+
+The current workspace lists pages in order but does not yet provide thumbnails, page reordering, deletion, or image corrections. Those are separate roadmap items and are not claimed as shipped.
 
 ## Requirements
 
 - Windows 10 or later (64-bit recommended).
 - .NET 8 Desktop Runtime for running a framework-dependent build.
-- A scanner with a supported Windows WIA or TWAIN driver.
+- A scanner with a supported Windows WIA or TWAIN driver for hardware scanning.
 
-The app uses the [NAPS2 SDK](https://www.naps2.com/sdk) for scanner-driver integration and PDF output. Actual device discovery and scan quality depend on the scanner model, its Windows driver, and the selected paper source. No physical scanner is available in the development sandbox, so hardware behavior must be verified on a Windows PC with a scanner attached.
+The app uses the [NAPS2 SDK](https://www.naps2.com/sdk) for scanner integration, image import, and PDF output. PDF import uses the optional [NAPS2.Pdfium.Binaries](https://www.nuget.org/packages/NAPS2.Pdfium.Binaries/1.3.0) runtime package. Actual device discovery and scan quality depend on the scanner model, its Windows driver, and the selected paper source. No physical scanner is available in the development sandbox, so hardware behavior must be verified on a Windows PC with a scanner attached.
 
 ## Build and test
 
@@ -33,7 +37,7 @@ The core unit tests do not require a scanner. The GitHub Actions workflow builds
 
 ## Privacy
 
-Scanned pages and generated PDFs are processed locally and saved to a location you choose. This app has no cloud upload or telemetry implementation. Keep private documents in a suitable local folder and review the chosen destination before each scan.
+Scanned pages and imported document pages are processed locally. The app does not upload file contents or modify the originals. During the current session, imported page data is held in a per-session folder under the user's system temporary directory to limit memory use; the workspace removes that temporary data on shutdown on a best-effort basis. Temporary storage is not secure erasure, so users handling highly sensitive documents should follow their organization's local-data handling procedures.
 
 ## Roadmap
 
