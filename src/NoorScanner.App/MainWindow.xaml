@@ -107,12 +107,48 @@
                                 AutomationProperties.Name="Import local photos, images, and PDF documents" />
                         <Button x:Name="ExportWorkspaceButton" Content="Save as PDF" Margin="10,0,0,0" Padding="15,9"
                                 IsEnabled="False" Click="ExportWorkspace_Click" AutomationProperties.Name="Save workspace pages as one PDF" />
+                        <Button x:Name="MovePageUpButton" Content="Move up" Margin="10,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="MovePageUp_Click" AutomationProperties.Name="Move selected page earlier in the PDF" />
+                        <Button x:Name="MovePageDownButton" Content="Move down" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="MovePageDown_Click" AutomationProperties.Name="Move selected page later in the PDF" />
+                        <Button x:Name="RemovePageButton" Content="Remove" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RemovePage_Click" AutomationProperties.Name="Remove selected page from the workspace" />
                         <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
                                    Foreground="{StaticResource MutedBrush}" />
                     </StackPanel>
                     <Grid Grid.Row="2">
-                        <ListBox x:Name="WorkspacePagesList" Visibility="Collapsed" DisplayMemberPath="DisplayLabel"
-                                 AutomationProperties.Name="Imported document pages" />
+                        <ListBox x:Name="WorkspacePagesList" Visibility="Collapsed" SelectionChanged="WorkspacePagesList_SelectionChanged"
+                                 AutomationProperties.Name="Imported document pages">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="7" />
+                                    <Setter Property="Margin" Value="0,0,0,8" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#F4F7F8" CornerRadius="9" Padding="9">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="96" Height="128" Background="White" BorderBrush="#E0E6E8"
+                                                    BorderThickness="1" CornerRadius="5" Padding="4">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0">
+                                                <TextBlock Text="{Binding PositionLabel}" FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource InkBrush}" />
+                                                <TextBlock Text="{Binding SourceFileName}" FontSize="12" Margin="0,5,0,0"
+                                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                         <StackPanel x:Name="WorkspaceEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
                             <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
                                 <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />

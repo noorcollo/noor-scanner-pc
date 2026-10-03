@@ -9,11 +9,13 @@ A Noor-branded Windows desktop app for scanning paper documents and assembling l
 - Scan at 150, 200, 300, or 600 DPI with optional automatic deskew.
 - Save feeder pages together as a multi-page PDF.
 - Import one or more local PDF, JPEG, PNG, BMP, or TIFF files into a page workspace.
-- Export imported pages together as one PDF, preserving the file-picker order.
+- Preview each imported page with a small thumbnail.
+- Move the selected page earlier or later in the queue, or remove it from the workspace.
+- Export imported pages together as one PDF in the displayed queue order.
 - Keep scanning, import, and PDF export local; Noor Scanner does not upload document contents.
 - Cancel a physical scan; closing the app cancels an in-progress file import before workspace cleanup.
 
-The current workspace lists pages in order but does not yet provide thumbnails, page reordering, deletion, or image corrections. Those are separate roadmap items and are not claimed as shipped.
+Page previews, page reordering, removal, and queue-ordered PDF export are now available. Page rotation, crop, and image enhancement are separate planned features and are not yet available.
 
 ## Requirements
 

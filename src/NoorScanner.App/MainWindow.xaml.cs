@@ -1,15 +1,21 @@
 using Microsoft.Win32;
+using NAPS2.Images;
 using NAPS2.Scan;
 using NoorScanner.Core;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 
 namespace NoorScanner.App;
+
+public sealed record PageQueueItem(string PositionLabel, string SourceFileName, BitmapSource Thumbnail);
 
 public partial class MainWindow : Window
 {
     private readonly ScannerService _scannerService = new();
     private readonly DocumentWorkspaceService _documentWorkspace = new();
+    private readonly Dictionary<ProcessedImage, BitmapSource> _thumbnailCache = new(ReferenceEqualityComparer.Instance);
     private CancellationTokenSource? _scanCancellation;
     private CancellationTokenSource? _workspaceImportCancellation;
     private bool _workspaceOperationInProgress;
@@ -29,6 +35,7 @@ public partial class MainWindow : Window
             if (!_workspaceOperationInProgress)
             {
                 _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
             }
         };
     }
@@ -95,14 +102,14 @@ public partial class MainWindow : Window
                 dialog.FileNames,
                 _workspaceImportCancellation.Token);
             if (_windowClosing) return;
-            RefreshWorkspacePages();
+            await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
             StatusText.Text = $"Added {addedPages} page{(addedPages == 1 ? "" : "s")} to the workspace";
         }
         catch (OperationCanceledException)
         {
             if (!_windowClosing)
             {
-                RefreshWorkspacePages();
+                await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
                 StatusText.Text = "Import cancelled";
             }
         }
@@ -110,7 +117,7 @@ public partial class MainWindow : Window
         {
             if (!_windowClosing)
             {
-                RefreshWorkspacePages();
+                await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
                 StatusText.Text = "One or more files could not be imported";
                 MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -123,6 +130,7 @@ public partial class MainWindow : Window
             if (_windowClosing)
             {
                 _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
             }
             else
             {
@@ -130,6 +138,35 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    private async void MovePageUp_Click(object sender, RoutedEventArgs e) => await MoveSelectedPageAsync(-1);
+
+    private async void MovePageDown_Click(object sender, RoutedEventArgs e) => await MoveSelectedPageAsync(1);
+
+    private async Task MoveSelectedPageAsync(int offset)
+    {
+        var sourceIndex = WorkspacePagesList.SelectedIndex;
+        var destinationIndex = sourceIndex + offset;
+        if (sourceIndex < 0 || !_documentWorkspace.MovePage(sourceIndex, destinationIndex)) return;
+
+        await RefreshWorkspacePagesAsync(destinationIndex);
+        StatusText.Text = "Page order updated · the saved PDF will follow this list";
+    }
+
+    private async void RemovePage_Click(object sender, RoutedEventArgs e)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var removed = _documentWorkspace.RemovePageAt(index);
+        if (removed is null) return;
+        _thumbnailCache.Remove(removed.Image);
+        var nextSelection = _documentWorkspace.Pages.Count == 0 ? -1 : Math.Min(index, _documentWorkspace.Pages.Count - 1);
+        await RefreshWorkspacePagesAsync(nextSelection);
+        StatusText.Text = $"Removed {removed.SourceFileName} from the workspace";
+    }
+
+    private void WorkspacePagesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
 
     private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
     {
@@ -177,6 +214,7 @@ public partial class MainWindow : Window
             if (_windowClosing)
             {
                 _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
             }
             else
             {
@@ -185,21 +223,76 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshWorkspacePages()
+    private async Task RefreshWorkspacePagesAsync(int? selectedIndex = null)
     {
-        var pages = _documentWorkspace.Pages;
+        var previousSelection = selectedIndex ?? WorkspacePagesList.SelectedIndex;
+        var pages = _documentWorkspace.Pages.ToArray();
+        var missingThumbnails = pages.Where(page => !_thumbnailCache.ContainsKey(page.Image)).ToArray();
+        if (missingThumbnails.Length > 0)
+        {
+            var renderedThumbnails = await Task.Run(async () =>
+            {
+                var results = new List<(ProcessedImage Image, byte[] PngBytes)>(missingThumbnails.Length);
+                foreach (var page in missingThumbnails)
+                {
+                    using var thumbnail = await new ThumbnailRenderer(page.Image.ImageContext)
+                        .Render(page.Image, 160)
+                        .ConfigureAwait(false);
+                    using var stream = new MemoryStream();
+                    thumbnail.Save(stream, ImageFileFormat.Png);
+                    results.Add((page.Image, stream.ToArray()));
+                }
+
+                return results;
+            });
+
+            foreach (var rendered in renderedThumbnails)
+            {
+                _thumbnailCache[rendered.Image] = CreateBitmapSource(rendered.PngBytes);
+            }
+        }
+
+        if (_windowClosing) return;
+        var rows = pages.Select((page, index) => new PageQueueItem(
+            $"Page {index + 1}", page.SourceFileName, _thumbnailCache[page.Image])).ToArray();
         WorkspacePagesList.ItemsSource = null;
-        WorkspacePagesList.ItemsSource = pages;
-        WorkspaceCountText.Text = $"{pages.Count} page{(pages.Count == 1 ? "" : "s")}";
-        WorkspacePagesList.Visibility = pages.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        WorkspaceEmptyState.Visibility = pages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ExportWorkspaceButton.IsEnabled = pages.Count > 0;
+        WorkspacePagesList.ItemsSource = rows;
+        WorkspaceCountText.Text = $"{pages.Length} page{(pages.Length == 1 ? "" : "s")}";
+        WorkspacePagesList.Visibility = pages.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceEmptyState.Visibility = pages.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ExportWorkspaceButton.IsEnabled = pages.Length > 0;
+        WorkspacePagesList.SelectedIndex = pages.Length == 0 || previousSelection < 0
+            ? -1
+            : Math.Min(previousSelection, pages.Length - 1);
+        UpdatePageQueueButtons();
+    }
+
+    private static BitmapSource CreateBitmapSource(byte[] pngBytes)
+    {
+        using var stream = new MemoryStream(pngBytes, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private void UpdatePageQueueButtons()
+    {
+        var selectedIndex = WorkspacePagesList.SelectedIndex;
+        var pageCount = _documentWorkspace.Pages.Count;
+        MovePageUpButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex > 0;
+        MovePageDownButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && selectedIndex < pageCount - 1;
+        RemovePageButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
     }
 
     private void SetWorkspaceBusy(bool isBusy)
     {
         ImportFilesButton.IsEnabled = !isBusy;
         ExportWorkspaceButton.IsEnabled = !isBusy && _documentWorkspace.Pages.Count > 0;
+        UpdatePageQueueButtons();
     }
 
     private async void Scan_Click(object sender, RoutedEventArgs e)

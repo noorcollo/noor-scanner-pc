@@ -39,6 +39,31 @@ public sealed class DocumentWorkspaceService : IDisposable
 
     public IReadOnlyList<WorkspacePage> Pages => _pages.AsReadOnly();
 
+    public bool MovePage(int sourceIndex, int destinationIndex)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!PageQueueOperations.TryMove(_pages, sourceIndex, destinationIndex)) return false;
+        RenumberPages();
+        return true;
+    }
+
+    public WorkspacePage? RemovePageAt(int index)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!PageQueueOperations.TryRemoveAt(_pages, index, out var removed)) return null;
+        removed.Image.Dispose();
+        RenumberPages();
+        return removed;
+    }
+
+    private void RenumberPages()
+    {
+        for (var index = 0; index < _pages.Count; index++)
+        {
+            _pages[index] = _pages[index] with { PageNumber = index + 1 };
+        }
+    }
+
     public async Task<int> ImportFilesAsync(IEnumerable<string> paths, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
