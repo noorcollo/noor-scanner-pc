@@ -16,3 +16,11 @@ Research checked on 2026-10-03 for the page-queue preview milestone:
 - [NAPS2 SDK ProcessedImage API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.ProcessedImage.html) — `ProcessedImage` is immutable and reference-counted; clones must be disposed before the parent context is disposed.
 - [NAPS2 SDK ThumbnailRenderer API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.ThumbnailRenderer.html) and [upstream implementation](https://github.com/cyanfish/naps2/blob/master/NAPS2.Sdk/Images/ThumbnailRenderer.cs) — `Render(ProcessedImage, int)` asynchronously returns an `IMemoryImage`, suitable for a small preview instead of rendering the full-resolution source.
 - [NAPS2 WPF image API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Wpf.WpfImage.html) — image memory objects can save to a stream with an explicit `ImageFileFormat`, allowing a frozen WPF bitmap to be created from a small PNG thumbnail.
+
+
+Research checked on 2026-10-04 for non-destructive page rotation:
+
+- [NAPS2 SDK RotationTransform API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.RotationTransform.html) — accepts an angle in degrees and normalizes rotations; [ProcessedImage.WithTransform](https://www.naps2.com/sdk/doc/api/NAPS2.Images.ProcessedImage.html) returns a new immutable image reference with the transform in its state.
+- [NAPS2 Windows GDI transformer source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images.Gdi/GdiImageTransformer.cs) routes a 90-degree rotation to `RotateFlipType.Rotate90FlipNone`.
+- [Microsoft RotateFlipType documentation](https://learn.microsoft.com/en-us/dotnet/api/system.drawing.rotatefliptype?view=net-11.0-pp) defines `Rotate90FlipNone` as a 90-degree clockwise rotation without flipping; the UI can safely label the corresponding actions Rotate right and Rotate left.
+- [NAPS2 TransformState API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.TransformState.html) exposes its transform sequence and `IsEmpty`; a Windows integration test can assert the rotation state and that opposite quarter-turns simplify back to the original orientation.

@@ -166,6 +166,53 @@ public partial class MainWindow : Window
         StatusText.Text = $"Removed {removed.SourceFileName} from the workspace";
     }
 
+    private async void RotatePageLeft_Click(object sender, RoutedEventArgs e) => await RotateSelectedPageAsync(clockwise: false);
+
+    private async void RotatePageRight_Click(object sender, RoutedEventArgs e) => await RotateSelectedPageAsync(clockwise: true);
+
+    private async Task RotateSelectedPageAsync(bool clockwise)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            if (!_documentWorkspace.RotatePage(index, clockwise)) return;
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = clockwise
+                    ? "Rotated page 90° clockwise · original image data is unchanged"
+                    : "Rotated page 90° counterclockwise · original image data is unchanged";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Page rotation did not complete";
+                MessageBox.Show(this, ex.Message, "Rotation failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
     private void WorkspacePagesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
 
     private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
@@ -286,6 +333,8 @@ public partial class MainWindow : Window
         MovePageUpButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex > 0;
         MovePageDownButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && selectedIndex < pageCount - 1;
         RemovePageButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        RotatePageLeftButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        RotatePageRightButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
     }
 
     private void SetWorkspaceBusy(bool isBusy)

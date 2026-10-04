@@ -101,7 +101,7 @@
                         <TextBlock Text="Your document workspace" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
                         <TextBlock Text="Bring in local photos, images, or PDFs, then save the pages together." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,18,0,14">
+                    <WrapPanel Grid.Row="1" Margin="0,18,0,14">
                         <Button x:Name="ImportFilesButton" Content="Add photos or PDFs" Padding="15,9" Background="{StaticResource AccentBrush}"
                                 Foreground="White" FontWeight="SemiBold" Click="ImportFiles_Click"
                                 AutomationProperties.Name="Import local photos, images, and PDF documents" />
@@ -113,9 +113,13 @@
                                 IsEnabled="False" Click="MovePageDown_Click" AutomationProperties.Name="Move selected page later in the PDF" />
                         <Button x:Name="RemovePageButton" Content="Remove" Margin="6,0,0,0" Padding="10,9"
                                 IsEnabled="False" Click="RemovePage_Click" AutomationProperties.Name="Remove selected page from the workspace" />
+                        <Button x:Name="RotatePageLeftButton" Content="Rotate left" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RotatePageLeft_Click" AutomationProperties.Name="Rotate selected page 90 degrees counterclockwise" />
+                        <Button x:Name="RotatePageRightButton" Content="Rotate right" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RotatePageRight_Click" AutomationProperties.Name="Rotate selected page 90 degrees clockwise" />
                         <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
                                    Foreground="{StaticResource MutedBrush}" />
-                    </StackPanel>
+                    </WrapPanel>
                     <Grid Grid.Row="2">
                         <ListBox x:Name="WorkspacePagesList" Visibility="Collapsed" SelectionChanged="WorkspacePagesList_SelectionChanged"
                                  AutomationProperties.Name="Imported document pages">

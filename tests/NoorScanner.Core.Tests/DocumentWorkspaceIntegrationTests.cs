@@ -1,4 +1,5 @@
 using NoorScanner.Core;
+using NAPS2.Images.Transforms;
 using System.Runtime.Versioning;
 using Xunit;
 
@@ -26,6 +27,16 @@ public sealed class DocumentWorkspaceIntegrationTests
                 Assert.Equal(1, imported);
                 var importedPage = Assert.Single(imageWorkspace.Pages);
                 Assert.Equal("one-page.bmp", importedPage.SourceFileName);
+                Assert.True(importedPage.Image.TransformState.IsEmpty);
+                Assert.False(imageWorkspace.RotatePage(-1, clockwise: true));
+
+                Assert.True(imageWorkspace.RotatePage(0, clockwise: true));
+                var clockwiseTransform = Assert.IsType<RotationTransform>(
+                    Assert.Single(imageWorkspace.Pages[0].Image.TransformState.Transforms));
+                Assert.Equal(90, clockwiseTransform.Angle);
+                Assert.True(imageWorkspace.RotatePage(0, clockwise: false));
+                Assert.True(imageWorkspace.Pages[0].Image.TransformState.IsEmpty);
+                Assert.True(imageWorkspace.RotatePage(0, clockwise: true));
 
                 await imageWorkspace.ExportToPdfAsync(pdfPath);
                 Assert.True(new FileInfo(pdfPath).Length > 100);

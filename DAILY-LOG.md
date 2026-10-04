@@ -24,3 +24,10 @@ Local validation: `dotnet test NoorScanner.sln --configuration Release` passed 2
 Added a thumbnail preview to each imported page, explicit Move up/Move down controls, and page removal. The workspace reindexes the list after moves/removals; PDF export consumes that same ordered page collection, so the displayed queue is the output order. Thumbnails are generated at small preview size with NAPS2 `ThumbnailRenderer`, cached as frozen WPF bitmaps, and removed from the cache when a page is deleted. Added platform-independent queue tests for moving forward/backward, invalid indexes, no-op moves, removals, and invalid removal.
 
 Validation: `dotnet test NoorScanner.sln --configuration Release` passed 34 tests. `dotnet build src/NoorScanner.App/NoorScanner.App.csproj --configuration Release` succeeded with 0 warnings and 0 errors; XAML parsed and compiled. Windows GitHub Actions run `37112301265` succeeded for commit `3e22673`, including tests and the Windows app build. No physical scanner is attached to this development sandbox, so scanner discovery, capture, and image quality remain unverified on hardware.
+
+
+## Scheduled session — 2026-10-04 — Non-destructive page rotation
+
+Added Rotate left and Rotate right actions for the selected workspace page. Rotation is recorded as an immutable NAPS2 transform rather than modifying the original image data; thumbnail rendering and PDF export consume the transformed page state. The Windows integration test now checks clockwise rotation, the inverse turn returning to the unrotated transform state, and PDF export of the rotated page. Cropping and enhancement remain planned.
+
+Local validation: `dotnet test NoorScanner.sln --configuration Release` passed 34 tests; the Windows-only workspace integration test compiled but its Windows path did not execute in this Linux sandbox. `dotnet build src/NoorScanner.App/NoorScanner.App.csproj --configuration Release` succeeded with 0 warnings and 0 errors; XAML parsed successfully. Windows GitHub Actions is pending for this branch update. No physical scanner is attached, so scanner discovery, capture, and hardware image quality remain unverified.

@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using NAPS2.Images;
 using NAPS2.Images.Gdi;
+using NAPS2.Images.Transforms;
 using NAPS2.ImportExport;
 using NAPS2.Pdf;
 using NAPS2.Scan;
@@ -44,6 +45,18 @@ public sealed class DocumentWorkspaceService : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!PageQueueOperations.TryMove(_pages, sourceIndex, destinationIndex)) return false;
         RenumberPages();
+        return true;
+    }
+
+    public bool RotatePage(int index, bool clockwise)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+
+        var page = _pages[index];
+        var rotatedImage = page.Image.WithTransform(new RotationTransform(clockwise ? 90 : -90));
+        page.Image.Dispose();
+        _pages[index] = page with { Image = rotatedImage };
         return true;
     }
 

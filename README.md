@@ -11,11 +11,12 @@ A Noor-branded Windows desktop app for scanning paper documents and assembling l
 - Import one or more local PDF, JPEG, PNG, BMP, or TIFF files into a page workspace.
 - Preview each imported page with a small thumbnail.
 - Move the selected page earlier or later in the queue, or remove it from the workspace.
+- Rotate the selected page 90° clockwise or counterclockwise; the source image remains unchanged, while the preview and exported PDF use the new orientation.
 - Export imported pages together as one PDF in the displayed queue order.
 - Keep scanning, import, and PDF export local; Noor Scanner does not upload document contents.
 - Cancel a physical scan; closing the app cancels an in-progress file import before workspace cleanup.
 
-Page previews, page reordering, removal, and queue-ordered PDF export are now available. Page rotation, crop, and image enhancement are separate planned features and are not yet available.
+Page previews, page reordering, removal, queue-ordered PDF export, and non-destructive quarter-turn rotation are available. Cropping and image enhancement remain planned features and are not yet available.
 
 ## Requirements
 
