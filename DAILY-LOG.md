@@ -31,3 +31,6 @@ Validation: `dotnet test NoorScanner.sln --configuration Release` passed 34 test
 Added Rotate left and Rotate right actions for the selected workspace page. Rotation is recorded as an immutable NAPS2 transform rather than modifying the original image data; thumbnail rendering and PDF export consume the transformed page state. The Windows integration test now checks clockwise rotation, the inverse turn returning to the unrotated transform state, and PDF export of the rotated page. Cropping and enhancement remain planned.
 
 Local validation: `dotnet test NoorScanner.sln --configuration Release` passed 34 tests; the Windows-only workspace integration test compiled but its Windows path did not execute in this Linux sandbox. `dotnet build src/NoorScanner.App/NoorScanner.App.csproj --configuration Release` succeeded with 0 warnings and 0 errors; XAML parsed successfully. Windows GitHub Actions is pending for this branch update. No physical scanner is attached, so scanner discovery, capture, and hardware image quality remain unverified.
+
+
+Post-push verification: Windows GitHub Actions run `37191414629` succeeded for commit `ec75476`, including the Windows-only rotation/PDF integration path, the test suite, and the Windows app build. No physical scanner was attached for device/capture validation.
