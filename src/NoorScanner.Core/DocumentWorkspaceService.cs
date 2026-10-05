@@ -60,6 +60,28 @@ public sealed class DocumentWorkspaceService : IDisposable
         return true;
     }
 
+    public bool IsDocumentCorrectionEnabled(int index)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+        return DocumentCorrectionOperations.IsDocumentCorrectionEnabled(_pages[index].Image.TransformState);
+    }
+
+    public bool SetDocumentCorrection(int index, bool enabled)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+
+        var page = _pages[index];
+        var transformState = DocumentCorrectionOperations.SetDocumentCorrection(page.Image.TransformState, enabled);
+        if (transformState.Equals(page.Image.TransformState)) return true;
+
+        var correctedImage = page.Image.WithTransformState(transformState);
+        page.Image.Dispose();
+        _pages[index] = page with { Image = correctedImage };
+        return true;
+    }
+
     public WorkspacePage? RemovePageAt(int index)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

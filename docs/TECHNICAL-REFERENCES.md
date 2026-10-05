@@ -24,3 +24,10 @@ Research checked on 2026-10-04 for non-destructive page rotation:
 - [NAPS2 Windows GDI transformer source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images.Gdi/GdiImageTransformer.cs) routes a 90-degree rotation to `RotateFlipType.Rotate90FlipNone`.
 - [Microsoft RotateFlipType documentation](https://learn.microsoft.com/en-us/dotnet/api/system.drawing.rotatefliptype?view=net-11.0-pp) defines `Rotate90FlipNone` as a 90-degree clockwise rotation without flipping; the UI can safely label the corresponding actions Rotate right and Rotate left.
 - [NAPS2 TransformState API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.TransformState.html) exposes its transform sequence and `IsEmpty`; a Windows integration test can assert the rotation state and that opposite quarter-turns simplify back to the original orientation.
+
+
+Research checked on 2026-10-05 for the optional document-enhancement preset:
+
+- [NAPS2 CorrectionTransform API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CorrectionTransform.html) accepts `CorrectionMode`; [CorrectionMode](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CorrectionMode.html) includes `Document`, `Photo`, and `None`.
+- [NAPS2 correction-transform source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/CorrectionTransform.cs) treats repeated same-mode correction as idempotent, which supports a simple apply/reset UI.
+- [NAPS2 transform application source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/AbstractImageTransformer.cs) shows Document mode applying black/white-point correction and a bilateral filter; [ProcessedImage.WithTransform](https://www.naps2.com/sdk/doc/api/NAPS2.Images.ProcessedImage.html) retains the operation as immutable transform state so the source image data is not rewritten.

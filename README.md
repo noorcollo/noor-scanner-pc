@@ -12,11 +12,12 @@ A Noor-branded Windows desktop app for scanning paper documents and assembling l
 - Preview each imported page with a small thumbnail.
 - Move the selected page earlier or later in the queue, or remove it from the workspace.
 - Rotate the selected page 90° clockwise or counterclockwise; the source image remains unchanged, while the preview and exported PDF use the new orientation.
+- Apply or reset NAPS2's Document enhancement preset on a selected page; reset preserves other edits such as rotation.
 - Export imported pages together as one PDF in the displayed queue order.
 - Keep scanning, import, and PDF export local; Noor Scanner does not upload document contents.
 - Cancel a physical scan; closing the app cancels an in-progress file import before workspace cleanup.
 
-Page previews, page reordering, removal, queue-ordered PDF export, and non-destructive quarter-turn rotation are available. Cropping and image enhancement remain planned features and are not yet available.
+Page previews, page reordering, removal, queue-ordered PDF export, non-destructive quarter-turn rotation, and an optional Document enhancement preset are available. The preset is intended for text documents and may change photo tones; users can reset it without losing rotation. Cropping and photo-specific adjustment remain planned.
 
 ## Requirements
 

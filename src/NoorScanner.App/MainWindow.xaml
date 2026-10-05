@@ -117,6 +117,10 @@
                                 IsEnabled="False" Click="RotatePageLeft_Click" AutomationProperties.Name="Rotate selected page 90 degrees counterclockwise" />
                         <Button x:Name="RotatePageRightButton" Content="Rotate right" Margin="6,0,0,0" Padding="10,9"
                                 IsEnabled="False" Click="RotatePageRight_Click" AutomationProperties.Name="Rotate selected page 90 degrees clockwise" />
+                        <Button x:Name="EnhanceDocumentButton" Content="Enhance document" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="EnhanceDocument_Click" AutomationProperties.Name="Apply document enhancement to selected page" />
+                        <Button x:Name="ResetEnhancementButton" Content="Reset enhancement" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ResetEnhancement_Click" AutomationProperties.Name="Remove document enhancement while preserving other page edits" />
                         <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
                                    Foreground="{StaticResource MutedBrush}" />
                     </WrapPanel>

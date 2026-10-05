@@ -213,6 +213,57 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void EnhanceDocument_Click(object sender, RoutedEventArgs e) =>
+        await SetDocumentCorrectionForSelectedPageAsync(enabled: true);
+
+    private async void ResetEnhancement_Click(object sender, RoutedEventArgs e) =>
+        await SetDocumentCorrectionForSelectedPageAsync(enabled: false);
+
+    private async Task SetDocumentCorrectionForSelectedPageAsync(bool enabled)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            if (!_documentWorkspace.SetDocumentCorrection(index, enabled)) return;
+            if (ReferenceEquals(originalImage, _documentWorkspace.Pages[index].Image)) return;
+
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = enabled
+                    ? "Document enhancement applied · original image data is unchanged"
+                    : "Document enhancement reset · page rotation is preserved";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Document enhancement did not complete";
+                MessageBox.Show(this, ex.Message, "Enhancement failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
     private void WorkspacePagesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
 
     private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
@@ -335,6 +386,9 @@ public partial class MainWindow : Window
         RemovePageButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
         RotatePageLeftButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
         RotatePageRightButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        var hasDocumentCorrection = selectedIndex >= 0 && _documentWorkspace.IsDocumentCorrectionEnabled(selectedIndex);
+        EnhanceDocumentButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && !hasDocumentCorrection;
+        ResetEnhancementButton.IsEnabled = !_workspaceOperationInProgress && hasDocumentCorrection;
     }
 
     private void SetWorkspaceBusy(bool isBusy)

@@ -34,3 +34,10 @@ Local validation: `dotnet test NoorScanner.sln --configuration Release` passed 3
 
 
 Post-push verification: Windows GitHub Actions run `37191414629` succeeded for commit `ec75476`, including the Windows-only rotation/PDF integration path, the test suite, and the Windows app build. No physical scanner was attached for device/capture validation.
+
+
+## Scheduled session — 2026-10-05 — Optional document enhancement
+
+Added an `Enhance document` action using NAPS2 `CorrectionMode.Document` and a `Reset enhancement` action. Both are non-destructive transform-state updates: reset removes only this document-correction preset and preserves rotation and unrelated transforms. The selection-aware buttons show which action is available. This preset is intended for text documents; it may alter photographs, and crop/photo-specific adjustment remain planned.
+
+Local validation: `dotnet test NoorScanner.sln --configuration Release` passed 37 tests, including three new platform-independent tests for idempotent enable, selective reset, and rotation preservation. The Windows-only workspace integration path now applies and renders the correction to a generated BMP before PDF export, but it did not execute in the Linux sandbox. `dotnet build src/NoorScanner.App/NoorScanner.App.csproj --configuration Release` succeeded with 0 warnings and 0 errors; XAML parsed successfully. Windows GitHub Actions is pending for this update. No physical scanner or representative real scan was available to assess image-quality effects.
