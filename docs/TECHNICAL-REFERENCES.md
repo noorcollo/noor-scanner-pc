@@ -31,3 +31,10 @@ Research checked on 2026-10-05 for the optional document-enhancement preset:
 - [NAPS2 CorrectionTransform API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CorrectionTransform.html) accepts `CorrectionMode`; [CorrectionMode](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CorrectionMode.html) includes `Document`, `Photo`, and `None`.
 - [NAPS2 correction-transform source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/CorrectionTransform.cs) treats repeated same-mode correction as idempotent, which supports a simple apply/reset UI.
 - [NAPS2 transform application source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/AbstractImageTransformer.cs) shows Document mode applying black/white-point correction and a bilateral filter; [ProcessedImage.WithTransform](https://www.naps2.com/sdk/doc/api/NAPS2.Images.ProcessedImage.html) retains the operation as immutable transform state so the source image data is not rewritten.
+
+
+Research checked on 2026-10-06 for proportional page cropping:
+
+- [NAPS2 CropTransform API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CropTransform.html) defines left/right/top/bottom pixel margins and optional original width/height references.
+- [NAPS2 crop transformer source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/AbstractImageTransformer.cs) scales crop margins by the rendered image’s size relative to those reference dimensions. Using the existing small thumbnail’s dimensions therefore keeps percentage presets proportional without loading a full-resolution page just to measure it.
+- [NAPS2 CropTransform source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/CropTransform.cs) supports safe composition of successive crop transforms when both have reference dimensions; removing only CropTransform entries preserves other immutable edits.

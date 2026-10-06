@@ -121,6 +121,16 @@
                                 IsEnabled="False" Click="EnhanceDocument_Click" AutomationProperties.Name="Apply document enhancement to selected page" />
                         <Button x:Name="ResetEnhancementButton" Content="Reset enhancement" Margin="6,0,0,0" Padding="10,9"
                                 IsEnabled="False" Click="ResetEnhancement_Click" AutomationProperties.Name="Remove document enhancement while preserving other page edits" />
+                        <ComboBox x:Name="CropMarginSelector" Width="132" Margin="6,0,0,0" IsEnabled="False"
+                                  SelectionChanged="CropMarginSelector_SelectionChanged" AutomationProperties.Name="Crop margin for each edge">
+                            <ComboBoxItem Content="2% each edge" Tag="2" />
+                            <ComboBoxItem Content="5% each edge" Tag="5" />
+                            <ComboBoxItem Content="10% each edge" Tag="10" />
+                        </ComboBox>
+                        <Button x:Name="ApplyCropButton" Content="Trim edges" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ApplyCrop_Click" AutomationProperties.Name="Trim the selected percentage from each page edge" />
+                        <Button x:Name="ResetCropButton" Content="Reset crop" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ResetCrop_Click" AutomationProperties.Name="Remove crop transforms while preserving rotation and enhancement" />
                         <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
                                    Foreground="{StaticResource MutedBrush}" />
                     </WrapPanel>

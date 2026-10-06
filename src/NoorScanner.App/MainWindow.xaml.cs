@@ -26,6 +26,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         DpiSelector.SelectedIndex = 2;
         PaperSourceSelector.SelectedIndex = 0;
+        CropMarginSelector.SelectedIndex = 1;
+        UpdatePageQueueButtons();
         Loaded += Window_Loaded;
         Closing += (_, _) =>
         {
@@ -264,6 +266,73 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CropMarginSelector_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
+
+    private async void ApplyCrop_Click(object sender, RoutedEventArgs e)
+    {
+        if (CropMarginSelector.SelectedItem is not ComboBoxItem selectedItem ||
+            !int.TryParse(selectedItem.Tag?.ToString(), out var marginPercent)) return;
+        await UpdateSelectedCropAsync(marginPercent);
+    }
+
+    private async void ResetCrop_Click(object sender, RoutedEventArgs e) => await UpdateSelectedCropAsync(null);
+
+    private async Task UpdateSelectedCropAsync(int? marginPercent)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        var referenceWidth = 0;
+        var referenceHeight = 0;
+        if (marginPercent.HasValue)
+        {
+            if (!_thumbnailCache.TryGetValue(originalImage, out var preview)) return;
+            referenceWidth = preview.PixelWidth;
+            referenceHeight = preview.PixelHeight;
+        }
+
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            var updated = marginPercent.HasValue
+                ? _documentWorkspace.AddCropMargin(index, referenceWidth, referenceHeight, marginPercent.Value)
+                : _documentWorkspace.ResetCrop(index);
+            if (!updated || ReferenceEquals(originalImage, _documentWorkspace.Pages[index].Image)) return;
+
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = marginPercent.HasValue
+                    ? $"Trimmed {marginPercent.Value}% from each current edge · original image data is unchanged"
+                    : "Crop reset · rotation and enhancement are preserved";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Page crop did not complete";
+                MessageBox.Show(this, ex.Message, "Crop failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
     private void WorkspacePagesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
 
     private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
@@ -389,6 +458,15 @@ public partial class MainWindow : Window
         var hasDocumentCorrection = selectedIndex >= 0 && _documentWorkspace.IsDocumentCorrectionEnabled(selectedIndex);
         EnhanceDocumentButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && !hasDocumentCorrection;
         ResetEnhancementButton.IsEnabled = !_workspaceOperationInProgress && hasDocumentCorrection;
+        var hasSelectedPage = selectedIndex >= 0 && selectedIndex < pageCount;
+        var hasUsablePreview = hasSelectedPage &&
+                               _thumbnailCache.TryGetValue(_documentWorkspace.Pages[selectedIndex].Image, out var preview) &&
+                               preview.PixelWidth >= 3 && preview.PixelHeight >= 3;
+        CropMarginSelector.IsEnabled = !_workspaceOperationInProgress && hasUsablePreview;
+        ApplyCropButton.IsEnabled = !_workspaceOperationInProgress && hasUsablePreview &&
+                                    CropMarginSelector.SelectedItem is ComboBoxItem;
+        ResetCropButton.IsEnabled = !_workspaceOperationInProgress && hasSelectedPage &&
+                                    _documentWorkspace.HasCrop(selectedIndex);
     }
 
     private void SetWorkspaceBusy(bool isBusy)

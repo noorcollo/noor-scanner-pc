@@ -43,9 +43,17 @@ public sealed class DocumentWorkspaceIntegrationTests
                 Assert.True(imageWorkspace.IsDocumentCorrectionEnabled(0));
                 Assert.Contains(imageWorkspace.Pages[0].Image.TransformState.Transforms,
                     transform => transform is CorrectionTransform { Mode: CorrectionMode.Document });
+                Assert.True(imageWorkspace.AddCropMargin(0, referenceWidth: 64, referenceHeight: 64, marginPercent: 5));
+                Assert.True(imageWorkspace.HasCrop(0));
+                var crop = Assert.Single(imageWorkspace.Pages[0].Image.TransformState.Transforms.OfType<CropTransform>());
+                Assert.Equal(3, crop.Left);
+                Assert.Equal(3, crop.Top);
                 await imageWorkspace.ExportToPdfAsync(enhancedPdfPath);
                 Assert.True(new FileInfo(enhancedPdfPath).Length > 100);
 
+                Assert.True(imageWorkspace.ResetCrop(0));
+                Assert.False(imageWorkspace.HasCrop(0));
+                Assert.True(imageWorkspace.IsDocumentCorrectionEnabled(0));
                 Assert.True(imageWorkspace.SetDocumentCorrection(0, enabled: false));
                 Assert.False(imageWorkspace.IsDocumentCorrectionEnabled(0));
                 Assert.Contains(imageWorkspace.Pages[0].Image.TransformState.Transforms,

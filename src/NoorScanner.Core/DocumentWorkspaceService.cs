@@ -82,6 +82,44 @@ public sealed class DocumentWorkspaceService : IDisposable
         return true;
     }
 
+    public bool HasCrop(int index)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+        return PageCropOperations.HasCrop(_pages[index].Image.TransformState);
+    }
+
+    public bool AddCropMargin(int index, int referenceWidth, int referenceHeight, int marginPercent)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+
+        var page = _pages[index];
+        var transformState = PageCropOperations.AddMargin(
+            page.Image.TransformState, referenceWidth, referenceHeight, marginPercent);
+        if (transformState.Equals(page.Image.TransformState)) return true;
+
+        var croppedImage = page.Image.WithTransformState(transformState);
+        page.Image.Dispose();
+        _pages[index] = page with { Image = croppedImage };
+        return true;
+    }
+
+    public bool ResetCrop(int index)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if ((uint)index >= (uint)_pages.Count) return false;
+
+        var page = _pages[index];
+        var transformState = PageCropOperations.Reset(page.Image.TransformState);
+        if (transformState.Equals(page.Image.TransformState)) return true;
+
+        var uncroppedImage = page.Image.WithTransformState(transformState);
+        page.Image.Dispose();
+        _pages[index] = page with { Image = uncroppedImage };
+        return true;
+    }
+
     public WorkspacePage? RemovePageAt(int index)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

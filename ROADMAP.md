@@ -4,7 +4,7 @@ This is the planned order for the seven scheduled 10:00 AM Algeria-time sessions
 
 1. **Bring documents in (shipped 2026-10-02):** import local photos, images, and PDFs into a page workspace, list imported pages in file-picker order, and export them as one PDF. Thumbnails, page reordering, and removal remain in step 2.
 2. **Build the page queue (shipped 2026-10-03):** preview imported pages with thumbnails, move the selected page earlier or later, remove pages, and export in the current queue order.
-3. **Clean up scans (in progress; rotation shipped 2026-10-04, Document enhancement shipped 2026-10-05):** rotate pages and optionally apply/reset NAPS2 Document correction as immutable transforms, preserving other edits. Cropping and photo-specific adjustment remain planned.
+3. **Clean up scans (in progress; rotation shipped 2026-10-04, Document enhancement shipped 2026-10-05, symmetric crop presets shipped 2026-10-06):** rotate pages; apply/reset NAPS2 Document correction; and trim 2%, 5%, or 10% from each current page edge. Resetting crop preserves other transforms. Freehand crop selection and photo-specific adjustment remain planned.
 4. **Searchable PDFs:** add opt-in OCR, language selection, and clear behavior when the OCR engine or language data is unavailable.
 5. **Reusable scan settings:** save and reuse resolution, source, color, and page-size preferences.
 6. **Document organization:** improve naming, recent output access, error recovery, and keyboard/accessibility behavior.
