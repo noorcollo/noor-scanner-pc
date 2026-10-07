@@ -38,3 +38,14 @@ Research checked on 2026-10-06 for proportional page cropping:
 - [NAPS2 CropTransform API](https://www.naps2.com/sdk/doc/api/NAPS2.Images.Transforms.CropTransform.html) defines left/right/top/bottom pixel margins and optional original width/height references.
 - [NAPS2 crop transformer source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/AbstractImageTransformer.cs) scales crop margins by the rendered image’s size relative to those reference dimensions. Using the existing small thumbnail’s dimensions therefore keeps percentage presets proportional without loading a full-resolution page just to measure it.
 - [NAPS2 CropTransform source](https://github.com/cyanfish/naps2/blob/master/NAPS2.Images/Transforms/CropTransform.cs) supports safe composition of successive crop transforms when both have reference dimensions; removing only CropTransform entries preserves other immutable edits.
+
+
+Research checked on 2026-10-07 for optional searchable-PDF OCR:
+
+- [NAPS2 PdfExporter API](https://www.naps2.com/sdk/doc/api/NAPS2.Pdf.PdfExporter.html) accepts optional `OcrParams` during PDF export; [ScanningContext](https://www.naps2.com/sdk/doc/api/NAPS2.Scan.ScanningContext.html) exposes `OcrEngine` for OCR requests.
+- [NAPS2 OcrParams API](https://www.naps2.com/sdk/doc/api/NAPS2.Ocr.OcrParams.html) configures the language code, OCR mode, and timeout. `OcrMode.Fast` is used for the `tessdata_fast` model family.
+- [NAPS2 TesseractOcrEngine API](https://www.naps2.com/sdk/doc/api/NAPS2.Ocr.TesseractOcrEngine.html) documents `Bundled(languageDataPath)` and `System()` engine creation; [NAPS2.Tesseract.Binaries 1.3.0](https://www.nuget.org/packages/NAPS2.Tesseract.Binaries/1.3.0) supplies cross-platform Tesseract executables and its NuGet metadata declares Apache-2.0.
+- [NAPS2 OCR setup documentation](https://www.naps2.com/doc/ocr) describes language model installation and searchable PDF behavior. This app does not auto-download models: it asks the user to place the selected model in `%LOCALAPPDATA%\\NoorScannerPC\\tessdata`.
+- [Tesseract trained-data guide](https://tesseract-ocr.github.io/tessdoc/Data-Files.html) lists supported data sets and language identifiers; [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) provides the fast models and states its license is Apache-2.0. The selected codes are English `eng`, French `fra`, and Arabic `ara`.
+
+The release build compiles the OCR path and the Linux tests cover model/engine preflight messages. A Windows integration test exercises runtime engine failure handling. Real OCR accuracy remains subject to validation with installed models and representative Windows documents.

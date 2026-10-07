@@ -1,5 +1,6 @@
 using NoorScanner.Core;
 using NAPS2.Images.Transforms;
+using NAPS2.Ocr;
 using System.Runtime.Versioning;
 using Xunit;
 
@@ -67,6 +68,43 @@ public sealed class DocumentWorkspaceIntegrationTests
             var importedPdfPages = await pdfWorkspace.ImportFilesAsync([pdfPath]);
             Assert.Equal(1, importedPdfPages);
             Assert.Equal("roundtrip.pdf", Assert.Single(pdfWorkspace.Pages).SourceFileName);
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows7.0")]
+    public async Task Workspace_OcrEngineFailureDoesNotSaveImageOnlyPdf()
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(7)) return;
+
+        var folder = Path.Combine(Path.GetTempPath(), $"noor-ocr-failure-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(folder);
+        var imagePath = Path.Combine(folder, "one-page.bmp");
+        var languageDataDirectory = Path.Combine(folder, "tessdata");
+        var outputPath = Path.Combine(folder, "searchable.pdf");
+        Directory.CreateDirectory(languageDataDirectory);
+        File.WriteAllBytes(imagePath, CreateTestBmp());
+        File.WriteAllText(Path.Combine(languageDataDirectory, "eng.traineddata"), "test placeholder");
+
+        try
+        {
+            using var workspace = new DocumentWorkspaceService();
+            await workspace.ImportFilesAsync([imagePath]);
+            var options = SearchablePdfOcrOptions.Create(
+                "eng",
+                languageDataDirectory,
+                _ => TesseractOcrEngine.Custom(Path.Combine(folder, "missing-tesseract.exe"), languageDataDirectory));
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => workspace.ExportToPdfAsync(outputPath, options));
+
+            Assert.Contains("OCR failed or timed out", exception.Message);
+            Assert.False(File.Exists(outputPath));
+            Assert.Empty(Directory.GetFiles(folder, "*.tmp.pdf", SearchOption.TopDirectoryOnly));
         }
         finally
         {

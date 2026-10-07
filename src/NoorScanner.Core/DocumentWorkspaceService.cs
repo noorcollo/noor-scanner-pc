@@ -183,7 +183,7 @@ public sealed class DocumentWorkspaceService : IDisposable
         return addedCount;
     }
 
-    public async Task ExportToPdfAsync(string outputPath)
+    public async Task ExportToPdfAsync(string outputPath, SearchablePdfOcrOptions? ocrOptions = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -207,8 +207,11 @@ public sealed class DocumentWorkspaceService : IDisposable
 
         try
         {
-            var exported = await new PdfExporter(_context)
-                .Export(temporaryPath, _pages.Select(page => page.Image).ToList())
+            var exported = await SearchablePdfExporter.ExportAsync(
+                    _context,
+                    temporaryPath,
+                    _pages.Select(page => page.Image).ToList(),
+                    ocrOptions)
                 .ConfigureAwait(false);
             if (!exported)
             {

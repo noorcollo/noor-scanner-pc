@@ -44,6 +44,7 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" CornerRadius="16" Padding="22">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <TextBlock Text="New scan" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
                     <TextBlock Text="Choose your scanner and scan quality." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,22" />
@@ -82,12 +83,26 @@
                     <CheckBox x:Name="DeskewCheckBox" Content="Straighten tilted pages" IsChecked="True"
                               Margin="0,18,0,20" FontSize="13" Foreground="{StaticResource InkBrush}"
                               AutomationProperties.Name="Automatically straighten pages" />
+                    <CheckBox x:Name="SearchablePdfCheckBox" Content="Make PDFs searchable (OCR)" IsChecked="False"
+                              Margin="0,0,0,8" FontSize="13" Foreground="{StaticResource InkBrush}"
+                              Checked="SearchablePdfOption_Changed" Unchecked="SearchablePdfOption_Changed"
+                              AutomationProperties.Name="Enable local OCR for searchable PDFs" />
+                    <ComboBox x:Name="OcrLanguageSelector" IsEnabled="False" SelectionChanged="OcrLanguage_SelectionChanged"
+                              AutomationProperties.Name="OCR language">
+                        <ComboBoxItem Content="English" Tag="eng" />
+                        <ComboBoxItem Content="French" Tag="fra" />
+                        <ComboBoxItem Content="Arabic" Tag="ara" />
+                    </ComboBox>
+                    <TextBlock x:Name="OcrSetupHint" Text="OCR is optional and off. PDFs contain page images only unless enabled."
+                               FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                               Margin="0,6,0,14" AutomationProperties.Name="OCR language-pack status" />
                     <Button x:Name="ScanButton" Content="Scan to PDF" Background="{StaticResource AccentBrush}"
                             Foreground="White" FontWeight="SemiBold" Click="Scan_Click"
                             AutomationProperties.Name="Scan documents and save as PDF" />
                     <Button x:Name="CancelButton" Content="Cancel scan" Margin="0,9,0,0" Background="#EEF2F4"
                             Foreground="{StaticResource InkBrush}" IsEnabled="False" Click="Cancel_Click" />
                 </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Border Grid.Column="2" Background="White" CornerRadius="16" Padding="28">

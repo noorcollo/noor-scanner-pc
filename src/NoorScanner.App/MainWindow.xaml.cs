@@ -26,7 +26,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         DpiSelector.SelectedIndex = 2;
         PaperSourceSelector.SelectedIndex = 0;
+        OcrLanguageSelector.SelectedIndex = 0;
         CropMarginSelector.SelectedIndex = 1;
+        UpdateOcrSetupHint();
         UpdatePageQueueButtons();
         Loaded += Window_Loaded;
         Closing += (_, _) =>
@@ -344,6 +346,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!TryCreateOcrOptions(out var ocrOptions)) return;
+
         var dialog = new SaveFileDialog
         {
             Title = "Save combined document",
@@ -358,12 +362,15 @@ public partial class MainWindow : Window
 
         _workspaceOperationInProgress = true;
         SetWorkspaceBusy(true);
-        StatusText.Text = "Creating your combined PDF locally…";
+        StatusText.Text = ocrOptions is null
+            ? "Creating your combined PDF locally…"
+            : $"Creating a searchable PDF locally · {ocrOptions.LanguageCode}…";
         try
         {
-            await _documentWorkspace.ExportToPdfAsync(dialog.FileName);
+            await _documentWorkspace.ExportToPdfAsync(dialog.FileName, ocrOptions);
             if (_windowClosing) return;
-            StatusText.Text = $"Saved {_documentWorkspace.Pages.Count} pages · {System.IO.Path.GetFileName(dialog.FileName)}";
+            var ocrStatus = ocrOptions is null ? "" : $" · searchable ({ocrOptions.LanguageCode})";
+            StatusText.Text = $"Saved {_documentWorkspace.Pages.Count} pages{ocrStatus} · {System.IO.Path.GetFileName(dialog.FileName)}";
             MessageBox.Show(this, $"Your {_documentWorkspace.Pages.Count}-page PDF is ready:\n{dialog.FileName}",
                 "Export complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -473,7 +480,71 @@ public partial class MainWindow : Window
     {
         ImportFilesButton.IsEnabled = !isBusy;
         ExportWorkspaceButton.IsEnabled = !isBusy && _documentWorkspace.Pages.Count > 0;
+        UpdateOcrSetupHint();
         UpdatePageQueueButtons();
+    }
+
+    private void SearchablePdfOption_Changed(object sender, RoutedEventArgs e) => UpdateOcrSetupHint();
+
+    private void OcrLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateOcrSetupHint();
+
+    private void UpdateOcrSetupHint()
+    {
+        if (OcrSetupHint is null) return;
+        var enabled = SearchablePdfCheckBox.IsChecked == true;
+        var settingsBusy = _workspaceOperationInProgress || _scanCancellation is not null;
+        SearchablePdfCheckBox.IsEnabled = !settingsBusy;
+        OcrLanguageSelector.IsEnabled = enabled && !settingsBusy;
+
+        if (!enabled)
+        {
+            OcrSetupHint.Text = "OCR is optional and off. PDFs contain page images only unless enabled.";
+            return;
+        }
+
+        var languageCode = (OcrLanguageSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            OcrSetupHint.Text = "Choose an OCR language.";
+            return;
+        }
+
+        try
+        {
+            _ = SearchablePdfOcrOptions.Create(languageCode);
+            OcrSetupHint.Text = $"Ready · {languageCode} language data found. OCR runs locally.";
+        }
+        catch (Exception exception)
+        {
+            OcrSetupHint.Text = exception.Message.Split("No PDF was created.", StringSplitOptions.None)[0].Trim();
+        }
+    }
+
+    private bool TryCreateOcrOptions(out SearchablePdfOcrOptions? ocrOptions)
+    {
+        ocrOptions = null;
+        if (SearchablePdfCheckBox.IsChecked != true) return true;
+
+        var languageCode = (OcrLanguageSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            MessageBox.Show(this, "Choose an OCR language before continuing.",
+                "OCR language required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        try
+        {
+            ocrOptions = SearchablePdfOcrOptions.Create(languageCode);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = "Searchable PDF setup is unavailable";
+            MessageBox.Show(this, exception.Message, "OCR setup required",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
     }
 
     private async void Scan_Click(object sender, RoutedEventArgs e)
@@ -484,6 +555,8 @@ public partial class MainWindow : Window
                 "No scanner selected", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        if (!TryCreateOcrOptions(out var ocrOptions)) return;
 
         var dialog = new SaveFileDialog
         {
@@ -512,12 +585,16 @@ public partial class MainWindow : Window
 
         _scanCancellation = new CancellationTokenSource();
         SetScanBusy(true);
-        StatusText.Text = "Scanning pages… Keep the document feeder clear until the scan completes.";
+        StatusText.Text = ocrOptions is null
+            ? "Scanning pages… Keep the document feeder clear until the scan completes."
+            : $"Scanning pages for a searchable PDF ({ocrOptions.LanguageCode})… Keep the document feeder clear until the scan completes.";
         try
         {
-            var pageCount = await _scannerService.ScanToPdfAsync(device, settings, dialog.FileName, _scanCancellation.Token);
+            var pageCount = await _scannerService.ScanToPdfAsync(
+                device, settings, dialog.FileName, _scanCancellation.Token, ocrOptions);
             if (_windowClosing) return;
-            StatusText.Text = $"Saved {pageCount} page{(pageCount == 1 ? "" : "s")} · {System.IO.Path.GetFileName(dialog.FileName)}";
+            var ocrStatus = ocrOptions is null ? "" : $" · searchable ({ocrOptions.LanguageCode})";
+            StatusText.Text = $"Saved {pageCount} page{(pageCount == 1 ? "" : "s")}{ocrStatus} · {System.IO.Path.GetFileName(dialog.FileName)}";
             MessageBox.Show(this, $"Your {pageCount}-page PDF is ready:\n{dialog.FileName}",
                 "Scan complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -552,5 +629,6 @@ public partial class MainWindow : Window
         DpiSelector.IsEnabled = !isBusy;
         PaperSourceSelector.IsEnabled = !isBusy;
         DeskewCheckBox.IsEnabled = !isBusy;
+        UpdateOcrSetupHint();
     }
 }
