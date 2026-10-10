@@ -1,23 +1,47 @@
-using System.Windows;
-using System.Windows.Controls;
 using Microsoft.Win32;
+using NAPS2.Images;
 using NAPS2.Scan;
 using NoorScanner.Core;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 
 namespace NoorScanner.App;
+
+public sealed record PageQueueItem(string PositionLabel, string SourceFileName, BitmapSource Thumbnail);
 
 public partial class MainWindow : Window
 {
     private readonly ScannerService _scannerService = new();
+    private readonly DocumentWorkspaceService _documentWorkspace = new();
+    private readonly Dictionary<ProcessedImage, BitmapSource> _thumbnailCache = new(ReferenceEqualityComparer.Instance);
     private CancellationTokenSource? _scanCancellation;
+    private CancellationTokenSource? _workspaceImportCancellation;
+    private bool _workspaceOperationInProgress;
+    private bool _windowClosing;
 
     public MainWindow()
     {
         InitializeComponent();
         DpiSelector.SelectedIndex = 2;
         PaperSourceSelector.SelectedIndex = 0;
+        OcrLanguageSelector.SelectedIndex = 0;
+        CropMarginSelector.SelectedIndex = 1;
+        UpdateOcrSetupHint();
+        UpdatePageQueueButtons();
         Loaded += Window_Loaded;
-        Closing += (_, _) => _scanCancellation?.Cancel();
+        Closing += (_, _) =>
+        {
+            _windowClosing = true;
+            _scanCancellation?.Cancel();
+            _workspaceImportCancellation?.Cancel();
+            if (!_workspaceOperationInProgress)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+        };
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e) => await RefreshDevicesAsync();
@@ -60,6 +84,469 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ImportFiles_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Add photos or PDF documents",
+            Filter = "Supported documents and images (*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff)|*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff|PDF documents (*.pdf)|*.pdf|Image files (*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff)|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff",
+            Multiselect = true,
+            CheckFileExists = true,
+            CheckPathExists = true
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        _workspaceOperationInProgress = true;
+        _workspaceImportCancellation = new CancellationTokenSource();
+        SetWorkspaceBusy(true);
+        StatusText.Text = "Importing selected files locally…";
+        try
+        {
+            var addedPages = await _documentWorkspace.ImportFilesAsync(
+                dialog.FileNames,
+                _workspaceImportCancellation.Token);
+            if (_windowClosing) return;
+            await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
+            StatusText.Text = $"Added {addedPages} page{(addedPages == 1 ? "" : "s")} to the workspace";
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_windowClosing)
+            {
+                await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
+                StatusText.Text = "Import cancelled";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                await RefreshWorkspacePagesAsync(_documentWorkspace.Pages.Count - 1);
+                StatusText.Text = "One or more files could not be imported";
+                MessageBox.Show(this, ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceImportCancellation?.Dispose();
+            _workspaceImportCancellation = null;
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private async void MovePageUp_Click(object sender, RoutedEventArgs e) => await MoveSelectedPageAsync(-1);
+
+    private async void MovePageDown_Click(object sender, RoutedEventArgs e) => await MoveSelectedPageAsync(1);
+
+    private async Task MoveSelectedPageAsync(int offset)
+    {
+        var sourceIndex = WorkspacePagesList.SelectedIndex;
+        var destinationIndex = sourceIndex + offset;
+        if (sourceIndex < 0 || !_documentWorkspace.MovePage(sourceIndex, destinationIndex)) return;
+
+        await RefreshWorkspacePagesAsync(destinationIndex);
+        StatusText.Text = "Page order updated · the saved PDF will follow this list";
+    }
+
+    private async void RemovePage_Click(object sender, RoutedEventArgs e)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var removed = _documentWorkspace.RemovePageAt(index);
+        if (removed is null) return;
+        _thumbnailCache.Remove(removed.Image);
+        var nextSelection = _documentWorkspace.Pages.Count == 0 ? -1 : Math.Min(index, _documentWorkspace.Pages.Count - 1);
+        await RefreshWorkspacePagesAsync(nextSelection);
+        StatusText.Text = $"Removed {removed.SourceFileName} from the workspace";
+    }
+
+    private async void RotatePageLeft_Click(object sender, RoutedEventArgs e) => await RotateSelectedPageAsync(clockwise: false);
+
+    private async void RotatePageRight_Click(object sender, RoutedEventArgs e) => await RotateSelectedPageAsync(clockwise: true);
+
+    private async Task RotateSelectedPageAsync(bool clockwise)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            if (!_documentWorkspace.RotatePage(index, clockwise)) return;
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = clockwise
+                    ? "Rotated page 90° clockwise · original image data is unchanged"
+                    : "Rotated page 90° counterclockwise · original image data is unchanged";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Page rotation did not complete";
+                MessageBox.Show(this, ex.Message, "Rotation failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private async void EnhanceDocument_Click(object sender, RoutedEventArgs e) =>
+        await SetDocumentCorrectionForSelectedPageAsync(enabled: true);
+
+    private async void ResetEnhancement_Click(object sender, RoutedEventArgs e) =>
+        await SetDocumentCorrectionForSelectedPageAsync(enabled: false);
+
+    private async Task SetDocumentCorrectionForSelectedPageAsync(bool enabled)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            if (!_documentWorkspace.SetDocumentCorrection(index, enabled)) return;
+            if (ReferenceEquals(originalImage, _documentWorkspace.Pages[index].Image)) return;
+
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = enabled
+                    ? "Document enhancement applied · original image data is unchanged"
+                    : "Document enhancement reset · page rotation is preserved";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Document enhancement did not complete";
+                MessageBox.Show(this, ex.Message, "Enhancement failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private void CropMarginSelector_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
+
+    private async void ApplyCrop_Click(object sender, RoutedEventArgs e)
+    {
+        if (CropMarginSelector.SelectedItem is not ComboBoxItem selectedItem ||
+            !int.TryParse(selectedItem.Tag?.ToString(), out var marginPercent)) return;
+        await UpdateSelectedCropAsync(marginPercent);
+    }
+
+    private async void ResetCrop_Click(object sender, RoutedEventArgs e) => await UpdateSelectedCropAsync(null);
+
+    private async Task UpdateSelectedCropAsync(int? marginPercent)
+    {
+        var index = WorkspacePagesList.SelectedIndex;
+        if (index < 0) return;
+
+        var originalImage = _documentWorkspace.Pages[index].Image;
+        var referenceWidth = 0;
+        var referenceHeight = 0;
+        if (marginPercent.HasValue)
+        {
+            if (!_thumbnailCache.TryGetValue(originalImage, out var preview)) return;
+            referenceWidth = preview.PixelWidth;
+            referenceHeight = preview.PixelHeight;
+        }
+
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        try
+        {
+            var updated = marginPercent.HasValue
+                ? _documentWorkspace.AddCropMargin(index, referenceWidth, referenceHeight, marginPercent.Value)
+                : _documentWorkspace.ResetCrop(index);
+            if (!updated || ReferenceEquals(originalImage, _documentWorkspace.Pages[index].Image)) return;
+
+            _thumbnailCache.Remove(originalImage);
+            await RefreshWorkspacePagesAsync(index);
+            if (!_windowClosing)
+            {
+                StatusText.Text = marginPercent.HasValue
+                    ? $"Trimmed {marginPercent.Value}% from each current edge · original image data is unchanged"
+                    : "Crop reset · rotation and enhancement are preserved";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Page crop did not complete";
+                MessageBox.Show(this, ex.Message, "Crop failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private void WorkspacePagesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePageQueueButtons();
+
+    private async void ExportWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        if (_documentWorkspace.Pages.Count == 0)
+        {
+            MessageBox.Show(this, "Add at least one document or image before saving a PDF.",
+                "Workspace is empty", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!TryCreateOcrOptions(out var ocrOptions)) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save combined document",
+            Filter = "PDF document (*.pdf)|*.pdf",
+            DefaultExt = ".pdf",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = $"NoorDocument_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        _workspaceOperationInProgress = true;
+        SetWorkspaceBusy(true);
+        StatusText.Text = ocrOptions is null
+            ? "Creating your combined PDF locally…"
+            : $"Creating a searchable PDF locally · {ocrOptions.LanguageCode}…";
+        try
+        {
+            await _documentWorkspace.ExportToPdfAsync(dialog.FileName, ocrOptions);
+            if (_windowClosing) return;
+            var ocrStatus = ocrOptions is null ? "" : $" · searchable ({ocrOptions.LanguageCode})";
+            StatusText.Text = $"Saved {_documentWorkspace.Pages.Count} pages{ocrStatus} · {System.IO.Path.GetFileName(dialog.FileName)}";
+            MessageBox.Show(this, $"Your {_documentWorkspace.Pages.Count}-page PDF is ready:\n{dialog.FileName}",
+                "Export complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            if (!_windowClosing)
+            {
+                StatusText.Text = "PDF export did not complete";
+                MessageBox.Show(this, ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        finally
+        {
+            _workspaceOperationInProgress = false;
+            if (_windowClosing)
+            {
+                _documentWorkspace.Dispose();
+                _thumbnailCache.Clear();
+            }
+            else
+            {
+                SetWorkspaceBusy(false);
+            }
+        }
+    }
+
+    private async Task RefreshWorkspacePagesAsync(int? selectedIndex = null)
+    {
+        var previousSelection = selectedIndex ?? WorkspacePagesList.SelectedIndex;
+        var pages = _documentWorkspace.Pages.ToArray();
+        var missingThumbnails = pages.Where(page => !_thumbnailCache.ContainsKey(page.Image)).ToArray();
+        if (missingThumbnails.Length > 0)
+        {
+            var renderedThumbnails = await Task.Run(async () =>
+            {
+                var results = new List<(ProcessedImage Image, byte[] PngBytes)>(missingThumbnails.Length);
+                foreach (var page in missingThumbnails)
+                {
+                    using var thumbnail = await new ThumbnailRenderer(page.Image.ImageContext)
+                        .Render(page.Image, 160)
+                        .ConfigureAwait(false);
+                    using var stream = new MemoryStream();
+                    thumbnail.Save(stream, ImageFileFormat.Png);
+                    results.Add((page.Image, stream.ToArray()));
+                }
+
+                return results;
+            });
+
+            foreach (var rendered in renderedThumbnails)
+            {
+                _thumbnailCache[rendered.Image] = CreateBitmapSource(rendered.PngBytes);
+            }
+        }
+
+        if (_windowClosing) return;
+        var rows = pages.Select((page, index) => new PageQueueItem(
+            $"Page {index + 1}", page.SourceFileName, _thumbnailCache[page.Image])).ToArray();
+        WorkspacePagesList.ItemsSource = null;
+        WorkspacePagesList.ItemsSource = rows;
+        WorkspaceCountText.Text = $"{pages.Length} page{(pages.Length == 1 ? "" : "s")}";
+        WorkspacePagesList.Visibility = pages.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WorkspaceEmptyState.Visibility = pages.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ExportWorkspaceButton.IsEnabled = pages.Length > 0;
+        WorkspacePagesList.SelectedIndex = pages.Length == 0 || previousSelection < 0
+            ? -1
+            : Math.Min(previousSelection, pages.Length - 1);
+        UpdatePageQueueButtons();
+    }
+
+    private static BitmapSource CreateBitmapSource(byte[] pngBytes)
+    {
+        using var stream = new MemoryStream(pngBytes, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private void UpdatePageQueueButtons()
+    {
+        var selectedIndex = WorkspacePagesList.SelectedIndex;
+        var pageCount = _documentWorkspace.Pages.Count;
+        MovePageUpButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex > 0;
+        MovePageDownButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && selectedIndex < pageCount - 1;
+        RemovePageButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        RotatePageLeftButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        RotatePageRightButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0;
+        var hasDocumentCorrection = selectedIndex >= 0 && _documentWorkspace.IsDocumentCorrectionEnabled(selectedIndex);
+        EnhanceDocumentButton.IsEnabled = !_workspaceOperationInProgress && selectedIndex >= 0 && !hasDocumentCorrection;
+        ResetEnhancementButton.IsEnabled = !_workspaceOperationInProgress && hasDocumentCorrection;
+        var hasSelectedPage = selectedIndex >= 0 && selectedIndex < pageCount;
+        var hasUsablePreview = hasSelectedPage &&
+                               _thumbnailCache.TryGetValue(_documentWorkspace.Pages[selectedIndex].Image, out var preview) &&
+                               preview.PixelWidth >= 3 && preview.PixelHeight >= 3;
+        CropMarginSelector.IsEnabled = !_workspaceOperationInProgress && hasUsablePreview;
+        ApplyCropButton.IsEnabled = !_workspaceOperationInProgress && hasUsablePreview &&
+                                    CropMarginSelector.SelectedItem is ComboBoxItem;
+        ResetCropButton.IsEnabled = !_workspaceOperationInProgress && hasSelectedPage &&
+                                    _documentWorkspace.HasCrop(selectedIndex);
+    }
+
+    private void SetWorkspaceBusy(bool isBusy)
+    {
+        ImportFilesButton.IsEnabled = !isBusy;
+        ExportWorkspaceButton.IsEnabled = !isBusy && _documentWorkspace.Pages.Count > 0;
+        UpdateOcrSetupHint();
+        UpdatePageQueueButtons();
+    }
+
+    private void SearchablePdfOption_Changed(object sender, RoutedEventArgs e) => UpdateOcrSetupHint();
+
+    private void OcrLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateOcrSetupHint();
+
+    private void UpdateOcrSetupHint()
+    {
+        if (OcrSetupHint is null) return;
+        var enabled = SearchablePdfCheckBox.IsChecked == true;
+        var settingsBusy = _workspaceOperationInProgress || _scanCancellation is not null;
+        SearchablePdfCheckBox.IsEnabled = !settingsBusy;
+        OcrLanguageSelector.IsEnabled = enabled && !settingsBusy;
+
+        if (!enabled)
+        {
+            OcrSetupHint.Text = "OCR is optional and off. PDFs contain page images only unless enabled.";
+            return;
+        }
+
+        var languageCode = (OcrLanguageSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            OcrSetupHint.Text = "Choose an OCR language.";
+            return;
+        }
+
+        try
+        {
+            _ = SearchablePdfOcrOptions.Create(languageCode);
+            OcrSetupHint.Text = $"Ready · {languageCode} language data found. OCR runs locally.";
+        }
+        catch (Exception exception)
+        {
+            OcrSetupHint.Text = exception.Message.Split("No PDF was created.", StringSplitOptions.None)[0].Trim();
+        }
+    }
+
+    private bool TryCreateOcrOptions(out SearchablePdfOcrOptions? ocrOptions)
+    {
+        ocrOptions = null;
+        if (SearchablePdfCheckBox.IsChecked != true) return true;
+
+        var languageCode = (OcrLanguageSelector.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            MessageBox.Show(this, "Choose an OCR language before continuing.",
+                "OCR language required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        try
+        {
+            ocrOptions = SearchablePdfOcrOptions.Create(languageCode);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = "Searchable PDF setup is unavailable";
+            MessageBox.Show(this, exception.Message, "OCR setup required",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
     private async void Scan_Click(object sender, RoutedEventArgs e)
     {
         if (DeviceSelector.SelectedItem is not ScanDevice device)
@@ -68,6 +555,8 @@ public partial class MainWindow : Window
                 "No scanner selected", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        if (!TryCreateOcrOptions(out var ocrOptions)) return;
 
         var dialog = new SaveFileDialog
         {
@@ -96,28 +585,36 @@ public partial class MainWindow : Window
 
         _scanCancellation = new CancellationTokenSource();
         SetScanBusy(true);
-        StatusText.Text = "Scanning pages… Keep the document feeder clear until the scan completes.";
+        StatusText.Text = ocrOptions is null
+            ? "Scanning pages… Keep the document feeder clear until the scan completes."
+            : $"Scanning pages for a searchable PDF ({ocrOptions.LanguageCode})… Keep the document feeder clear until the scan completes.";
         try
         {
-            var pageCount = await _scannerService.ScanToPdfAsync(device, settings, dialog.FileName, _scanCancellation.Token);
-            StatusText.Text = $"Saved {pageCount} page{(pageCount == 1 ? "" : "s")} · {System.IO.Path.GetFileName(dialog.FileName)}";
+            var pageCount = await _scannerService.ScanToPdfAsync(
+                device, settings, dialog.FileName, _scanCancellation.Token, ocrOptions);
+            if (_windowClosing) return;
+            var ocrStatus = ocrOptions is null ? "" : $" · searchable ({ocrOptions.LanguageCode})";
+            StatusText.Text = $"Saved {pageCount} page{(pageCount == 1 ? "" : "s")}{ocrStatus} · {System.IO.Path.GetFileName(dialog.FileName)}";
             MessageBox.Show(this, $"Your {pageCount}-page PDF is ready:\n{dialog.FileName}",
                 "Scan complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (OperationCanceledException)
         {
-            StatusText.Text = "Scan cancelled";
+            if (!_windowClosing) StatusText.Text = "Scan cancelled";
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Scan did not complete";
-            MessageBox.Show(this, ex.Message, "Scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!_windowClosing)
+            {
+                StatusText.Text = "Scan did not complete";
+                MessageBox.Show(this, ex.Message, "Scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         finally
         {
             _scanCancellation.Dispose();
             _scanCancellation = null;
-            SetScanBusy(false);
+            if (!_windowClosing) SetScanBusy(false);
         }
     }
 
@@ -132,5 +629,6 @@ public partial class MainWindow : Window
         DpiSelector.IsEnabled = !isBusy;
         PaperSourceSelector.IsEnabled = !isBusy;
         DeskewCheckBox.IsEnabled = !isBusy;
+        UpdateOcrSetupHint();
     }
 }

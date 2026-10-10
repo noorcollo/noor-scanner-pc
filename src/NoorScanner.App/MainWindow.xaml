@@ -44,6 +44,7 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="White" CornerRadius="16" Padding="22">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
                     <TextBlock Text="New scan" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
                     <TextBlock Text="Choose your scanner and scan quality." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,22" />
@@ -82,34 +83,116 @@
                     <CheckBox x:Name="DeskewCheckBox" Content="Straighten tilted pages" IsChecked="True"
                               Margin="0,18,0,20" FontSize="13" Foreground="{StaticResource InkBrush}"
                               AutomationProperties.Name="Automatically straighten pages" />
+                    <CheckBox x:Name="SearchablePdfCheckBox" Content="Make PDFs searchable (OCR)" IsChecked="False"
+                              Margin="0,0,0,8" FontSize="13" Foreground="{StaticResource InkBrush}"
+                              Checked="SearchablePdfOption_Changed" Unchecked="SearchablePdfOption_Changed"
+                              AutomationProperties.Name="Enable local OCR for searchable PDFs" />
+                    <ComboBox x:Name="OcrLanguageSelector" IsEnabled="False" SelectionChanged="OcrLanguage_SelectionChanged"
+                              AutomationProperties.Name="OCR language">
+                        <ComboBoxItem Content="English" Tag="eng" />
+                        <ComboBoxItem Content="French" Tag="fra" />
+                        <ComboBoxItem Content="Arabic" Tag="ara" />
+                    </ComboBox>
+                    <TextBlock x:Name="OcrSetupHint" Text="OCR is optional and off. PDFs contain page images only unless enabled."
+                               FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                               Margin="0,6,0,14" AutomationProperties.Name="OCR language-pack status" />
                     <Button x:Name="ScanButton" Content="Scan to PDF" Background="{StaticResource AccentBrush}"
                             Foreground="White" FontWeight="SemiBold" Click="Scan_Click"
                             AutomationProperties.Name="Scan documents and save as PDF" />
                     <Button x:Name="CancelButton" Content="Cancel scan" Margin="0,9,0,0" Background="#EEF2F4"
                             Foreground="{StaticResource InkBrush}" IsEnabled="False" Click="Cancel_Click" />
                 </StackPanel>
+                </ScrollViewer>
             </Border>
 
             <Border Grid.Column="2" Background="White" CornerRadius="16" Padding="28">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="A calmer way to scan" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
-                        <TextBlock Text="Scan paper documents into PDFs, right from your PC." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" />
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Your document workspace" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" />
+                        <TextBlock Text="Bring in local photos, images, or PDFs, then save the pages together." Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
-                        <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
-                            <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="Ready when you are" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Text="Connect a scanner, place your page, then choose Scan to PDF. Multi-page feeder scans are saved together as one document." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,0" LineHeight="23" />
-                        <Border Background="#F4F7F8" CornerRadius="10" Padding="15" Margin="0,24,0,0">
-                            <TextBlock Text="Scanned pages are processed locally. Noor Scanner does not upload document content." TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                        </Border>
-                    </StackPanel>
+                    <WrapPanel Grid.Row="1" Margin="0,18,0,14">
+                        <Button x:Name="ImportFilesButton" Content="Add photos or PDFs" Padding="15,9" Background="{StaticResource AccentBrush}"
+                                Foreground="White" FontWeight="SemiBold" Click="ImportFiles_Click"
+                                AutomationProperties.Name="Import local photos, images, and PDF documents" />
+                        <Button x:Name="ExportWorkspaceButton" Content="Save as PDF" Margin="10,0,0,0" Padding="15,9"
+                                IsEnabled="False" Click="ExportWorkspace_Click" AutomationProperties.Name="Save workspace pages as one PDF" />
+                        <Button x:Name="MovePageUpButton" Content="Move up" Margin="10,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="MovePageUp_Click" AutomationProperties.Name="Move selected page earlier in the PDF" />
+                        <Button x:Name="MovePageDownButton" Content="Move down" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="MovePageDown_Click" AutomationProperties.Name="Move selected page later in the PDF" />
+                        <Button x:Name="RemovePageButton" Content="Remove" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RemovePage_Click" AutomationProperties.Name="Remove selected page from the workspace" />
+                        <Button x:Name="RotatePageLeftButton" Content="Rotate left" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RotatePageLeft_Click" AutomationProperties.Name="Rotate selected page 90 degrees counterclockwise" />
+                        <Button x:Name="RotatePageRightButton" Content="Rotate right" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="RotatePageRight_Click" AutomationProperties.Name="Rotate selected page 90 degrees clockwise" />
+                        <Button x:Name="EnhanceDocumentButton" Content="Enhance document" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="EnhanceDocument_Click" AutomationProperties.Name="Apply document enhancement to selected page" />
+                        <Button x:Name="ResetEnhancementButton" Content="Reset enhancement" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ResetEnhancement_Click" AutomationProperties.Name="Remove document enhancement while preserving other page edits" />
+                        <ComboBox x:Name="CropMarginSelector" Width="132" Margin="6,0,0,0" IsEnabled="False"
+                                  SelectionChanged="CropMarginSelector_SelectionChanged" AutomationProperties.Name="Crop margin for each edge">
+                            <ComboBoxItem Content="2% each edge" Tag="2" />
+                            <ComboBoxItem Content="5% each edge" Tag="5" />
+                            <ComboBoxItem Content="10% each edge" Tag="10" />
+                        </ComboBox>
+                        <Button x:Name="ApplyCropButton" Content="Trim edges" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ApplyCrop_Click" AutomationProperties.Name="Trim the selected percentage from each page edge" />
+                        <Button x:Name="ResetCropButton" Content="Reset crop" Margin="6,0,0,0" Padding="10,9"
+                                IsEnabled="False" Click="ResetCrop_Click" AutomationProperties.Name="Remove crop transforms while preserving rotation and enhancement" />
+                        <TextBlock x:Name="WorkspaceCountText" Text="0 pages" Margin="14,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
+                    </WrapPanel>
+                    <Grid Grid.Row="2">
+                        <ListBox x:Name="WorkspacePagesList" Visibility="Collapsed" SelectionChanged="WorkspacePagesList_SelectionChanged"
+                                 AutomationProperties.Name="Imported document pages">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="7" />
+                                    <Setter Property="Margin" Value="0,0,0,8" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#F4F7F8" CornerRadius="9" Padding="9">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="96" Height="128" Background="White" BorderBrush="#E0E6E8"
+                                                    BorderThickness="1" CornerRadius="5" Padding="4">
+                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0">
+                                                <TextBlock Text="{Binding PositionLabel}" FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource InkBrush}" />
+                                                <TextBlock Text="{Binding SourceFileName}" FontSize="12" Margin="0,5,0,0"
+                                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel x:Name="WorkspaceEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="410">
+                            <Border Width="94" Height="94" CornerRadius="24" Background="#EAF5F2" HorizontalAlignment="Center" Margin="0,0,0,18">
+                                <TextBlock Text="▤" FontSize="43" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="Add local documents" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Choose one or more PDF, JPEG, PNG, BMP, or TIFF files. Their pages will appear here in the file-picker order." TextAlignment="Center" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,9,0,0" LineHeight="23" />
+                            <Border Background="#F4F7F8" CornerRadius="10" Padding="15" Margin="0,24,0,0">
+                                <TextBlock Text="Files are imported locally. Noor Scanner does not upload document content." TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

@@ -20,7 +20,8 @@ public sealed class ScannerService
         ScanDevice device,
         ScanSettings settings,
         string outputPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        SearchablePdfOcrOptions? ocrOptions = null)
     {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(settings);
@@ -54,12 +55,23 @@ public sealed class ScannerService
             throw new InvalidOperationException("The scanner returned no pages. Check the scanner and paper source, then try again.");
         }
 
-        var exported = await new PdfExporter(context)
-            .Export(fullPath, pages)
-            .ConfigureAwait(false);
-        if (!exported)
+        var temporaryPath = Path.Combine(
+            outputDirectory,
+            $".{Path.GetFileNameWithoutExtension(fullPath)}.{Guid.NewGuid():N}.tmp.pdf");
+        try
         {
-            throw new IOException("The PDF exporter did not complete successfully.");
+            var exported = await SearchablePdfExporter.ExportAsync(context, temporaryPath, pages, ocrOptions)
+                .ConfigureAwait(false);
+            if (!exported)
+            {
+                throw new IOException("The PDF exporter did not complete successfully.");
+            }
+
+            File.Move(temporaryPath, fullPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
         }
 
         return pages.Count;
